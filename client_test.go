@@ -1,7 +1,7 @@
 package devinotele_test
 
 import (
-	"github.com/kazhuravlev/go-lib-devinotele/devinotele"
+	"github.com/dev-services42/go-lib-devinotele"
 	"github.com/stretchr/testify/assert"
 	"net/http"
 	"os"
