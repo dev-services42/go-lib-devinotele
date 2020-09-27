@@ -9,10 +9,10 @@ import (
 )
 
 var (
-	testLogin    = os.GetEnv("TEST_DEVINO_LOGIN")
-	testPassword = os.GetEnv("TEST_DEVINO_PASSWORD")
-	testNumber   = os.GetEnv("TEST_DEVINO_PHONE")
-	testSender   = os.GetEnv("TEST_DEVINO_SENDER")
+	testLogin    = os.Getenv("TEST_DEVINO_LOGIN")
+	testPassword = os.Getenv("TEST_DEVINO_PASSWORD")
+	testNumber   = os.Getenv("TEST_DEVINO_PHONE")
+	testSender   = os.Getenv("TEST_DEVINO_SENDER")
 )
 
 func TestNew(t *testing.T) {
