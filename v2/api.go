@@ -26,12 +26,22 @@ type SmsMessage struct {
 	Options     map[string]string `json:"options"`
 }
 
-type SendSmsResponse struct {
+type MessageStatus int8
+
+const (
+	MessageStatusUnknown MessageStatus = iota
+	MessageStatusOK
+	MessageStatusError
+)
+
+type MessageResult struct {
+	Status     MessageStatus
 	MessageID  string
 	SegmentIDs []string
+	Error      ErrorResponse
 }
 
-func (c *Client) SendSms(ctx context.Context, req SendSmsRequest) (*SendSmsResponse, error) {
+func (c *Client) SendSms(ctx context.Context, req SendSmsRequest) ([]MessageResult, error) {
 	buf := new(bytes.Buffer)
 	if err := json.NewEncoder(buf).Encode(req); err != nil {
 		return nil, errors.Wrap(err, "cannot encode request")
@@ -44,6 +54,9 @@ func (c *Client) SendSms(ctx context.Context, req SendSmsRequest) (*SendSmsRespo
 		return nil, errors.Wrap(err, "cannot create request")
 	}
 
+	httpReq.Header.Set("content-type", "application/json")
+	c.credentials.Propagate(httpReq)
+
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot do request")
@@ -53,34 +66,58 @@ func (c *Client) SendSms(ctx context.Context, req SendSmsRequest) (*SendSmsRespo
 		_ = resp.Body.Close()
 	}()
 
-	switch {
-	default:
-		return nil, errors.Wrap(ErrBadResponse, "status code is unexpected")
-	case resp.StatusCode == http.StatusOK:
-		var response struct {
+	// Do not check the status code, because devinotele not describe http
+	// status codes.
+	var response struct {
+		Result []struct {
 			Code        StatusCode `json:"code"`
 			MessageID   string     `json:"messageId"`
 			Description string     `json:"description"`
 			SegmentIDs  []string   `json:"segmentsId"`
 			Reasons     []Reason   `json:"reasons"`
-		}
-		if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-			return nil, errors.Wrap(err, "cannot decode response")
-		}
+		} `json:"result"`
+	}
 
-		switch response.Code {
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		return nil, errors.Wrap(err, "cannot decode response")
+	}
+
+	statuses := make([]MessageResult, len(response.Result))
+	for i := range response.Result {
+		result := &response.Result[i]
+		switch result.Code {
 		default:
-			return nil, errors.Wrap(ErrBadResponse, "unexpected response code")
-		case StatusCodeOk:
-			return &SendSmsResponse{
-				MessageID:  response.MessageID,
-				SegmentIDs: response.SegmentIDs,
-			}, nil
+			statuses[i] = MessageResult{
+				Status:     MessageStatusUnknown,
+				MessageID:  "",
+				SegmentIDs: nil,
+				Error: ErrorResponse{
+					Description: "Unknown message status code",
+					Reasons:     nil,
+				},
+			}
+		case StatusCodeOK:
+			statuses[i] = MessageResult{
+				Status:     MessageStatusOK,
+				MessageID:  result.MessageID,
+				SegmentIDs: result.SegmentIDs,
+				Error: ErrorResponse{
+					Description: "",
+					Reasons:     nil,
+				},
+			}
 		case StatusCodeRejected:
-			return nil, ErrorResponse{
-				Description: response.Description,
-				Reasons:     response.Reasons,
+			statuses[i] = MessageResult{
+				Status:     MessageStatusError,
+				MessageID:  "",
+				SegmentIDs: nil,
+				Error: ErrorResponse{
+					Description: result.Description,
+					Reasons:     result.Reasons,
+				},
 			}
 		}
 	}
+
+	return statuses, nil
 }

@@ -15,7 +15,7 @@ const (
 type StatusCode string
 
 const (
-	StatusCodeOk       StatusCode = "OK"
+	StatusCodeOK       StatusCode = "OK"
 	StatusCodeRejected StatusCode = "REJECTED"
 )
 

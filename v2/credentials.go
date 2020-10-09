@@ -9,7 +9,7 @@ type Credentials interface {
 type ApiKeyCredentials string
 
 func (c ApiKeyCredentials) Propagate(req *http.Request) {
-	req.Header.Set("Authorization", "API KEY "+string(c))
+	req.Header.Set("Authorization", "Key "+string(c))
 }
 
 type BasicAuthCredentials struct {
